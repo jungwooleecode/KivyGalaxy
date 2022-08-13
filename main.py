@@ -1,4 +1,5 @@
 import random
+from telnetlib import X3PAD
 from kivy.config import Config
 Config.set('graphics', 'width', '900')
 Config.set('graphics', 'height', '400')
@@ -37,15 +38,22 @@ class MainWidget(Widget):
     current_offset_y=0
     current_offset_x=0
 
-    NB_TILES=8
+    NB_TILES=6
     tiles= []
     tiles_coordinates=[]
+
+    SHIP_WIDTH= .1
+    SHIP_HEIGHT= 0.035
+    SHIP_BASE_Y= 0.4
+    ship=None
 
     def __init__(self, **kwargs):
         super(MainWidget, self).__init__(**kwargs)
         self.init_vertical_lines()
         self.init_horizontal_lines()
         self.init_tiles()
+        self.init_ship()
+        self.pre_fill_tiles_coordinates()
         self.generate_tiles_coordinates()
         
         if self.is_desktop():
@@ -61,14 +69,38 @@ class MainWidget(Widget):
 
         return False
 
+    def init_ship(self):
+        with self.canvas:
+            Color(0,0,0)
+            self.ship =Triangle()
+
+    def update_ship(self):
+        center_x=self.width/2
+        base_y = self.SHIP_BASE_Y*self.height
+        ship_half_width=self.SHIP_WIDTH*self.width/2
+        ship_height= self.SHIP_HEIGHT*self.height
+        #    2
+        #  1    3
+
+        x1, y1=self.transform(center_x-ship_half_width, base_y)
+        x2, y2=self.transform(center_x, base_y + ship_height)
+        x3, y3=self.transform(center_x+ship_half_width, base_y)
+       
+        self.ship.points=[x1,y1,x2,y2,x3,y3]
+
+
     def init_tiles(self):
         with self.canvas:
             Color(1,1,1)
             for i in range(0, self.NB_TILES):
                 self.tiles.append(Quad())
 
-    def generate_tiles_coordinates(self):
+    def pre_fill_tiles_coordinates(self):
+        for i in range(0,10):
+            self.tiles_coordinates.append((0,i))
 
+    def generate_tiles_coordinates(self):
+        last_x=0
         last_y=0
         # clean the coordinates that are out of the screen
         # ti_y < self.current y loop
@@ -79,10 +111,37 @@ class MainWidget(Widget):
 
         if len(self.tiles_coordinates)>0:
             last_coordinates=self.tiles_coordinates[-1]
+
+            last_x=last_coordinates[0]
             last_y=last_coordinates[1] +1
 
         for i in range(len(self.tiles_coordinates), self.NB_TILES):
-            self.tiles_coordinates.append((0,last_y))
+            r= random.randint(0,2)
+            # 0=straight
+            # 1=right
+            # 2=left
+            start_index= -int(self.V_NB_LINES/2) +1
+            end_index= start_index + self.V_NB_LINES -1
+
+            if last_x <= start_index:
+                r=1
+            if last_x >= end_index:
+                r=2
+
+
+            self.tiles_coordinates.append((last_x,last_y))
+            if (r==1):
+                last_x +=1
+                self.tiles_coordinates.append((last_x,last_y))
+                last_y +=1
+                self.tiles_coordinates.append((last_x,last_y))
+
+            if (r==2):
+                last_x -=1
+                self.tiles_coordinates.append((last_x,last_y))
+                last_y +=1
+                self.tiles_coordinates.append((last_x,last_y))
+
             last_y +=1
     
     def init_vertical_lines(self):
@@ -170,6 +229,7 @@ class MainWidget(Widget):
         self.update_vertical_lines()
         self.update_horizontal_lines()
         self.update_tiles()
+        self.update_ship()
 
         self.current_offset_y += self.SPEED*time_factor
 
